@@ -1,11 +1,5 @@
 package ML::Gatherer;
 
-use Exporter ();
-@ISA = qw(Exporter);
-@EXPORT =
-qw(
-);
-
 use strict;
 use warnings;
 
@@ -13,6 +7,7 @@ use LWP::UserAgent;
 use HTML::Form;
 use HTML::TableExtract;
 use HTTP::Cookies;
+use XML::Simple qw(:strict);
 
 =head1 NAME
 
@@ -70,9 +65,9 @@ sub new
 ############################################################################
 #
 
-=item fetch ($name, $dir)
+=item fetch ($setname, $dir)
 
-Fetch the Gatherer data for the set named $name.
+Fetch the Gatherer data for the set named $setname.
 Data is written to $dir if set. Otherwise it is returned as a single string.
 $dir must already exist.
 
@@ -83,14 +78,14 @@ $dir must already exist.
 sub fetch
 {       
         my($self) = shift;
-	my($name, $dir) = @_;
+	my($setname, $dir) = @_;
 
 	my $ua = $self->userAgent;
 	# Construct URL
 #http://gatherer.wizards.com/Pages/Search/Default.aspx?output=checklist&sort=cn+&set=%5b%22Vintage+Masters%22%5d
 	my $url = $self->url .
 		'?output=checklist&sort=cn+&set=["' .
-		$name .
+		$setname .
 		'"]';
 	# Fetch page
 	print "** fetch(): getting: $url\n" if $self->verbose;
@@ -102,11 +97,71 @@ sub fetch
 		return(undef);
 	}
 	print "** fetch(): bytes downloaded: ${\(length($res->content))}\n" if $self->verbose;
-	# Extract table and then row data
-	# Don't need to specify every table header column,
-	# just the ones we want to extract
-	# just enough to uniquely match the table...
-	# # Name Artist Color Rarity Set
+	my $te = HTML::TableExtract->new(
+		'headers' => [ '#', 'Name', 'Color', 'Rarity', 'Set', ],
+		'keep_html' => 1,
+	);
+	$te->parse($res->content);
+	my $tbl = $te->first_table_found;
+	if (!$tbl)
+	{
+		print STDERR "ERROR: fetch(): could not find table for: $setname\n";
+		return(undef);
+	}
+	if (!$tbl->rows)
+	{
+		print STDERR "ERROR: fetch(): no rows in table for: $setname\n";
+		return(undef);
+	}
+	print "** fetch(): rows in table: ${\(scalar(@{ $tbl->rows }))}\n" if $self->verbose;
+	my @cards;
+	my $row = 1;
+	my $sname;
+	foreach my $r ($tbl->rows)
+	{
+		my($cnum, $cname, $ccolor, $crarity);
+		($cnum, $cname, $ccolor, $crarity, $sname) = @$r;
+		($cname =~ m#<a [^>]*>([^<]*)</a>#) and ($cname = $1);
+		$cname =~ s/^\303\206/AE/g;	# Fix cards like: AEther
+		$cname =~ s/^\303\241/u/g;	# Fix cards like: Juzam
+		$cname =~ s/^\303\242/u/g;	# Fix cards like: Dandan
+		$cname =~ s/^\303\255/u/g;	# Fix cards like: Ifh-Biff
+		$cname =~ s/^\303\266/u/g;	# Fix cards like: Jotun
+		$cname =~ s/^\303\273/u/g;	# Fix cards like: Lim-Dul
+		my %card =
+		(
+			'num' => $cnum,
+			'name' => $cname,
+			'color' => $ccolor,
+			'rarity' => $crarity,
+		);
+		defined($ccolor) or delete($card{'color'});
+		#
+		## Check for unexpected html ###############################
+		#
+		foreach my $k (keys(%card))
+		{
+			print STDERR "WARNING: unexpected tag for $k in row $row: ${($card{$k})}\n" if ($card{$k} =~ m#[<>&]#);
+		}
+		push(@cards, \%card);
+		print "**\t$cnum $crarity $sname $cname\n" if $self->verbose;
+		($sname eq $setname) or
+			print STDERR "WARNING: unexpected set name: $sname != $setname\n";
+		$row++;
+	}
+	my($sec, $min, $hour, $mday, $mon, $year) = (localtime())[0..5];
+	my %setinfo =
+	(
+		'created' => sprintf("%04d%02d%02d-%02d%02d%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec),
+		'set_name' => $setname,
+		'set_size' => scalar(@cards),
+		'card' => \@cards,
+	);
+	my $xml = XMLout(\%setinfo,
+		'KeyAttr' => 'name',
+		'Attrindent' => 1,
+	);
+	return($xml);
 	# Generate XML
 	# Return XML???
 }       

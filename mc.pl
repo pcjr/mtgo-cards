@@ -10,7 +10,7 @@ use ML::Static;
 #
 ## TODO ####################################################################
 #
-# Consider what, if anything, to do about the cookie file
+# Consider what, if anything, to do about the cookie file before we exit
 #
 ## Argument handling #######################################################
 #
@@ -93,6 +93,7 @@ sub mc_gatherer
 		my $name = $mcs->setMaps($code);
 		print "** fetching: $name\n" if $v;
 		my $xml = $g->fetch($name);
+print "DEBUG: XML:\n$xml\n";
 	}
 }
 #
@@ -117,7 +118,9 @@ mc - Magic Online Collection management tool
 	mc [-help] [-force] [-man] [-verbose] [-quiet] [-db path] command args
 
     Commands:
+	check
 	gatherer setcode ...
+	inventory file.csv
 	noop
 
 =head1 DESCRIPTION
@@ -138,6 +141,14 @@ The B<-db> argument can be used to over-ride this.
 
 =over 4
 
+=item check
+
+Perform various sanity checks. These include verifying:
+
+	o existence of your inventory
+	o all the set codes in your inventory are supported
+	o card set data exists for all supported set codes
+
 =item gatherer setcode ...
 
 Collect information from Gatherer about the specified sets.
@@ -146,6 +157,10 @@ whose name begins with the I<setcode> followed by a B<.xml> suffix.
 
 If the set information already exists, then B<mc> does nothing
 unless the B<-force> argument was specified.
+
+=item inventory file.csv
+
+Process and store the specified CSV inventory file.
 
 =item noop
 
