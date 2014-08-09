@@ -1,0 +1,3 @@
+Installing required perl modules:
+
+sudo perl -MCPAN -e 'install HTML::TableExtract'
