@@ -46,6 +46,7 @@ my $db = $opts{'db'} || 'mcdata';
 my %commands =
 (
 	'gatherer' => 1,
+	'list' => 1,
 	'noop' => 1,
 );
 @ARGV or die("error: missing sub-command");
@@ -84,7 +85,7 @@ sub mc_gatherer
 		$errors++;
 	}
 	$errors and die("errors: found $errors error(s)");
-	print "** fetching ${\(scalar(@ARGV))} set(s)\n" if $v;
+	print "** gather'ing ${\(scalar(@ARGV))} set(s)\n" if $v;
 	foreach my $code (@ARGV)
 	{
 		print "** fetching: $code\n" if $v;
@@ -102,6 +103,32 @@ sub mc_gatherer
 			$errors++;
 			next;
 		}
+	}
+	return($errors ? 0 : 1);
+}
+#
+## mc_list() #############################################################
+#
+sub mc_list
+{
+	my $errors = 0;
+
+	@ARGV or die("error: missing set code argument");
+	print "** list'ing ${\(scalar(@ARGV))} set(s)\n" if $v;
+	foreach my $code (@ARGV)
+	{
+		print "** list'ing: $code\n" if $v;
+		my $data = $storage->setLoad($code);
+		if (!$data)
+		{
+			print STDERR "error: could not load set: $code\n";
+			$errors++;
+			next;
+		}
+		print "Set Name: ", $data->{'set_name'}, "\n";
+		print "Retrieved: ", $data->{'saved'}, "\n";
+		print "Source: ", $data->{'source'}, "\n";
+		print "Size: ", $data->{'set_size'}, "\n";
 	}
 	return($errors ? 0 : 1);
 }
@@ -130,6 +157,7 @@ mc - Magic Online Collection management tool
 	check
 	gatherer setcode ...
 	inventory file.csv
+	list setcode ...
 	noop
 
 =head1 DESCRIPTION
@@ -170,6 +198,11 @@ unless the B<-force> argument was specified.
 =item inventory file.csv
 
 Process and store the specified CSV inventory file.
+
+=item list setcode ...
+
+List the contents of the specified set. Assumes this set has already
+been gathered.
 
 =item noop
 

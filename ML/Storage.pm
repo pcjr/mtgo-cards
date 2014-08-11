@@ -121,6 +121,38 @@ sub setPath
 ############################################################################
 #       
 
+=item setLoad ($code)
+
+Load the set with three-letter abbreviation $code.
+
+Returns reference to same data structure as originally passed to setSave().
+Returns B<undef> on failure.
+
+=cut
+#
+############################################################################
+#
+sub setLoad
+{
+        my $self = shift;
+	my($code) = @_;
+	my $path = $self->setPath($code);
+
+	my $xml = eval { XMLin($path,
+		'ForceArray' => 1,
+		'KeyAttr' => 'name',
+	) };
+	if ($@)
+	{
+		print STDERR "ERROR: setLoad(): XML parsing errors: $@\n";
+		return(undef);
+	}
+	return($xml);
+}
+#
+############################################################################
+#       
+
 =item setSave ($code, $data)
 
 Save the set with three-letter abbreviation $code.
