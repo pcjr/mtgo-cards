@@ -1,0 +1,16 @@
+git push origin master
+
+
+# Price info: http://www.mtggoldfish.com/index/VMA#online
+# Need to determine if they use the same 3-letter set codes as mtgo
+
+Create a data management package. Methods such as:
+
+o save_set -
+	update an existing set if it has fewer or zero cards (suggesting it is corrupt)
+	or if the force option is used
+o load_set -
+	load the XML for a particular set into a perl data structure
+
+o save_collection
+0 load_collection

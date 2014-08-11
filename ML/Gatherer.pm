@@ -7,7 +7,6 @@ use LWP::UserAgent;
 use HTML::Form;
 use HTML::TableExtract;
 use HTTP::Cookies;
-use XML::Simple qw(:strict);
 
 =head1 NAME
 
@@ -37,9 +36,10 @@ Gatherer data.
 ############################################################################
 #       
 
-=item new ()
+=item new ($mcs)
 
-Create an instance of a B<ML::Gatherer> object.
+Create an instance of a B<ML::Gatherer> object. $mcs is a Magic Card Static
+object.
 
 =cut
 #
@@ -48,28 +48,38 @@ Create an instance of a B<ML::Gatherer> object.
 sub new
 {
         my($class) = shift;
-        my($dbprof) = @_;
+	@_ or die('missing $mcs to ML::Gatherer->new()');
         my($self) =
         {
-                'URL'	=> 'http://gatherer.wizards.com/Pages/Search/Default.aspx',
-		'USER_AGENT'		=> undef,
-		'USER_AGENT_NAME'	=> 'Mozilla/5.0 ',
 		'COOKIE_JAR'	=> 'lwp_cookies.dat',
+		'MCS'		=> undef,
+		'USER_AGENT'	=> undef,
+		'USER_AGENT_NAME'	=> 'Mozilla/5.0 ',
 		'VERBOSE'	=> 0,
+                'URL'		=> 'http://gatherer.wizards.com/Pages/Search/Default.aspx',
         };      
                 
         bless($self, $class);   
+	$self->mcs(shift);
         return($self);
 }       
 #
 ############################################################################
 #
 
-=item fetch ($setname, $dir)
+=item fetch ($setcode)
 
-Fetch the Gatherer data for the set named $setname.
-Data is written to $dir if set. Otherwise it is returned as a single string.
-$dir must already exist.
+Fetch the Gatherer data for the set with 3-letter code $setcode. Data is
+returned as an XML string.
+
+Returns a hash reference containing the following keys:
+
+	created	- time/date stamp of when the data was downloaded
+	source	- source for data, Gatherer URL
+	set_name- Full name of set
+	set_code- Three-letter code for set
+	set_size- number of cards in set
+	cards	- reference to list of hash references describing cards in set
 
 =cut
 #
@@ -78,9 +88,15 @@ $dir must already exist.
 sub fetch
 {       
         my($self) = shift;
-	my($setname, $dir) = @_;
-
+	my($setcode) = @_;
+	my $setname = $self->mcs->setMaps($setcode);
 	my $ua = $self->userAgent;
+
+	if (!$setname)
+	{
+		print STDERR "ERROR: fetch(): bad set code: '$setcode'\n";
+		return(undef);
+	}
 	# Construct URL
 #http://gatherer.wizards.com/Pages/Search/Default.aspx?output=checklist&sort=cn+&set=%5b%22Vintage+Masters%22%5d
 	my $url = $self->url .
@@ -122,12 +138,7 @@ sub fetch
 		my($cnum, $cname, $ccolor, $crarity);
 		($cnum, $cname, $ccolor, $crarity, $sname) = @$r;
 		($cname =~ m#<a [^>]*>([^<]*)</a>#) and ($cname = $1);
-		$cname =~ s/^\303\206/AE/g;	# Fix cards like: AEther
-		$cname =~ s/^\303\241/u/g;	# Fix cards like: Juzam
-		$cname =~ s/^\303\242/u/g;	# Fix cards like: Dandan
-		$cname =~ s/^\303\255/u/g;	# Fix cards like: Ifh-Biff
-		$cname =~ s/^\303\266/u/g;	# Fix cards like: Jotun
-		$cname =~ s/^\303\273/u/g;	# Fix cards like: Lim-Dul
+		$cname = $self->mcs->fixCardNames($cname);
 		my %card =
 		(
 			'num' => $cnum,
@@ -152,18 +163,14 @@ sub fetch
 	my($sec, $min, $hour, $mday, $mon, $year) = (localtime())[0..5];
 	my %setinfo =
 	(
-		'created' => sprintf("%04d%02d%02d-%02d%02d%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec),
-		'set_name' => $setname,
-		'set_size' => scalar(@cards),
-		'card' => \@cards,
+		'created' =>	sprintf("%04d%02d%02d-%02d%02d%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec),
+		'set_name' =>	$setname,
+		'set_code' =>	$setcode,
+		'set_size' =>	scalar(@cards),
+		'source' =>	$url,
+		'cards' =>	\@cards,
 	);
-	my $xml = XMLout(\%setinfo,
-		'KeyAttr' => 'name',
-		'Attrindent' => 1,
-	);
-	return($xml);
-	# Generate XML
-	# Return XML???
+	return(\%setinfo);
 }       
 #
 ############################################################################
@@ -181,7 +188,7 @@ sub userAgent
 {       
         my $self = shift;
 	#
-	## Initialize LWP object #############################################
+	## Initialize LWP object ###########################################
 	#
 	$self->{'USER_AGENT'} = shift if (@_);
 	return($self->{'USER_AGENT'}) if $self->{'USER_AGENT'};
@@ -226,6 +233,25 @@ sub cookieJar
                 
 	$self->{'COOKIE_JAR'} = shift if (@_);
 	return($self->{'COOKIE_JAR'});
+}       
+#
+############################################################################
+#
+
+=item mcs ()
+
+Get or set the ML::Static object.
+
+=cut
+#
+############################################################################
+#       
+sub mcs
+{       
+        my($self) = shift;
+                
+	$self->{'MCS'} = shift if (@_);
+	return($self->{'MCS'});
 }       
 #
 ############################################################################

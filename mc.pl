@@ -4,9 +4,9 @@ use warnings;
 
 use Getopt::Long;
 use Pod::Usage;
-use File::Path;
 use ML::Gatherer;
 use ML::Static;
+use ML::Storage;
 #
 ## TODO ####################################################################
 #
@@ -54,19 +54,16 @@ exists($commands{$command}) or die("error: unrecognized sub-command: $command");
 #
 ## Startup initialization ################################################
 #
+my $storage = ML::Storage->new($db);
 my $mcs = ML::Static->new();
-if (-e $db and $command ne 'noop')
-{
-	make_path($db,
-	{
-		'verbose' => $v,
-	});
-}
 #
 ## Run command ###########################################################
 #
-eval("mc_$command");
-exit($?);
+my $status = eval("mc_$command");
+defined($status) or
+	die("ERROR: eval(mc_$command) failed: $@");
+print "** exiting\n" if $v;
+exit($status ? 0 : 1);
 #
 ## Sub-commands ##########################################################
 #
@@ -78,7 +75,7 @@ sub mc_gatherer
 	my $errors = 0;
 
 	@ARGV or die("error: missing set code argument");
-	my $g = ML::Gatherer->new();
+	my $g = ML::Gatherer->new($mcs);
 	$g->verbose(1) if $v;
 	foreach my $code (@ARGV)
 	{	# check all set codes
@@ -90,11 +87,23 @@ sub mc_gatherer
 	print "** fetching ${\(scalar(@ARGV))} set(s)\n" if $v;
 	foreach my $code (@ARGV)
 	{
-		my $name = $mcs->setMaps($code);
-		print "** fetching: $name\n" if $v;
-		my $xml = $g->fetch($name);
-print "DEBUG: XML:\n$xml\n";
+		print "** fetching: $code\n" if $v;
+		my $data = $g->fetch($code);
+		if (!$data)
+		{
+			print STDERR "error: could not fetch set: $code\n";
+			$errors++;
+			next;
+		}
+		print "** saving: $code\n" if $v;
+		if (!$storage->setSave($code, $data))
+		{
+			print STDERR "error: could not save set: $code\n";
+			$errors++;
+			next;
+		}
 	}
+	return($errors ? 0 : 1);
 }
 #
 ## mc_noop() #############################################################
@@ -164,7 +173,9 @@ Process and store the specified CSV inventory file.
 
 =item noop
 
-This sub-command does nothing.
+This sub-command does mostly nothing. The directory for persistent
+data will be created if it doesn't exist. If you don't want this
+to happen, specify B<.> for the B<-db> argument.
 
 =back
 
@@ -174,6 +185,11 @@ The command line arguments are described below.
 All arguments can be abbreviated to their shortest unique values.
 
 =over 4
+
+=item -db path
+
+Store persistent data in I<path>. This directory will be created
+if it does not exist.
 
 =item -force
 

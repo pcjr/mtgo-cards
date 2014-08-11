@@ -58,6 +58,32 @@ sub new
 ############################################################################
 #
 
+=item fixCardNames ($cardname)
+
+Examine $cardname for special characters and convert them to our standard
+ascii equivalents.
+
+=cut
+#
+############################################################################
+#       
+sub fixCardNames
+{       
+        my $self = shift;
+	my $cardname = shift;
+
+	$cardname =~ s/^\303\206/AE/g;	# Fix cards like: AEther
+	$cardname =~ s/^\303\241/u/g;	# Fix cards like: Juzam
+	$cardname =~ s/^\303\242/u/g;	# Fix cards like: Dandan
+	$cardname =~ s/^\303\255/u/g;	# Fix cards like: Ifh-Biff
+	$cardname =~ s/^\303\266/u/g;	# Fix cards like: Jotun
+	$cardname =~ s/^\303\273/u/g;	# Fix cards like: Lim-Dul
+	return($cardname);
+}       
+#
+############################################################################
+#
+
 =item setMaps ($code)
 
 If $code is set, return the Gatherer name corresponding to that set code.
