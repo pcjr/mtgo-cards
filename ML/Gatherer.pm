@@ -38,8 +38,8 @@ Gatherer data.
 
 =item new ($mcs)
 
-Create an instance of a B<ML::Gatherer> object. $mcs is a Magic Card Static
-object.
+Create an instance of a B<ML::Gatherer> object.
+$ mcs is a Magic Card Static object.
 
 =cut
 #
@@ -74,12 +74,13 @@ returned as an XML string.
 
 Returns a hash reference containing the following keys:
 
-	created	- time/date stamp of when the data was downloaded
-	source	- source for data, Gatherer URL
-	set_name- Full name of set
-	set_code- Three-letter code for set
-	set_size- number of cards in set
 	cards	- reference to list of hash references describing cards in set
+	retrieved- time/date stamp of when the data was downloaded
+	seconds - how many seconds it took to download and parse the data
+	set_code- set name abbreviation
+	set_name- Full name of set
+	set_size- number of cards in set
+	source	- source for data, Gatherer URL
 
 =cut
 #
@@ -91,6 +92,7 @@ sub fetch
 	my($setcode) = @_;
 	my $setname = $self->mcs->setMaps($setcode);
 	my $ua = $self->userAgent;
+	my $tstart = time();
 
 	if (!$setname)
 	{
@@ -169,6 +171,7 @@ sub fetch
 		'set_size' =>	scalar(@cards),
 		'source' =>	$url,
 		'cards' =>	\@cards,
+		'seconds' =>	time() - $tstart,
 	);
 	return(\%setinfo);
 }       

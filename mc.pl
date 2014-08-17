@@ -7,6 +7,7 @@ use Pod::Usage;
 use ML::Gatherer;
 use ML::Static;
 use ML::Storage;
+use ML::MTGO;
 #
 ## TODO ####################################################################
 #
@@ -44,7 +45,9 @@ my $db = $opts{'db'} || 'mcdata';
 ## Sanity checks ###########################################################
 #
 my %commands =
-(
+(	# future planned commands are listed with value of undef
+	'check' => undef,
+	'inventory' => 1,
 	'gatherer' => 1,
 	'list' => 1,
 	'noop' => 1,
@@ -52,6 +55,7 @@ my %commands =
 @ARGV or die("error: missing sub-command");
 my $command = shift;
 exists($commands{$command}) or die("error: unrecognized sub-command: $command");
+$commands{$command} or die("error: unimplemented sub-command: $command");
 #
 ## Startup initialization ################################################
 #
@@ -62,7 +66,7 @@ my $mcs = ML::Static->new();
 #
 my $status = eval("mc_$command");
 defined($status) or
-	die("ERROR: eval(mc_$command) failed: $@");
+	die("ERROR: $@");
 print "** exiting\n" if $v;
 exit($status ? 0 : 1);
 #
@@ -97,13 +101,42 @@ sub mc_gatherer
 			next;
 		}
 		print "** saving: $code\n" if $v;
-		if (!$storage->setSave($code, $data))
+		if (!$storage->set($code, $data))
 		{
 			print STDERR "error: could not save set: $code\n";
 			$errors++;
 			next;
 		}
+		print "Gathered $code, ", $data->{'set_size'}, " cards\n" if !$q;
 	}
+	return($errors ? undef : 1);
+}
+#
+## mc_inventory() ########################################################
+#
+sub mc_inventory
+{
+	my $errors = 0;
+
+	@ARGV or die("error: missing inventory file argument");
+	my $path = shift(@ARGV);
+	!@ARGV or die("error: extra inventory file argument(s): " . join(', ', @ARGV));
+	my $m = ML::MTGO->new($mcs);
+	$m->verbose(1) if $v;
+	print "** inventory'ing: $path\n" if $v;
+	my $data = $m->inventory($path);
+	if (!$data)
+	{
+		print STDERR "error: could not load inventory: $path\n";
+		return(undef);
+	}
+	print "** saving inventory\n" if $v;
+	if (!$storage->inv($data))
+	{
+		print STDERR "error: could not save inventory\n";
+		return(undef);
+	}
+	print "Inventoried ", $data->{'num_cards'}, " total cards\n" if !$q;
 	return($errors ? 0 : 1);
 }
 #
@@ -118,7 +151,7 @@ sub mc_list
 	foreach my $code (@ARGV)
 	{
 		print "** list'ing: $code\n" if $v;
-		my $data = $storage->setLoad($code);
+		my $data = $storage->set($code);
 		if (!$data)
 		{
 			print STDERR "error: could not load set: $code\n";
