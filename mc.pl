@@ -46,7 +46,7 @@ my $db = $opts{'db'} || 'mcdata';
 #
 my %commands =
 (	# future planned commands are listed with value of undef
-	'check' => undef,
+	'check' => 1,
 	'inventory' => 1,
 	'gatherer' => 1,
 	'list' => 1,
@@ -72,6 +72,43 @@ exit($status ? 0 : 1);
 #
 ## Sub-commands ##########################################################
 #
+#
+## mc_check() ############################################################
+#
+sub mc_check
+{
+	my $errors = 0;
+
+	my $inv = $storage->inv;
+	$inv or die("error: can not load inventory");
+	print "** check'ing: ${\(scalar(@{ $inv->{'sets'} }))} inventory sets\n" if $v;
+	foreach my $set (@{ $inv->{'sets'} })
+	{
+		print "** check'ing: $set\n" if $v;
+		if (!$mcs->setMaps($set))
+		{
+			print STDERR "CHECK: missing from set map: $set\n";
+			$errors++;
+			next;
+		}
+		my $path = $storage->setPath($set);
+		if (! -e $path)
+		{
+			print STDERR "CHECK: no inventory data for set: $set\n";
+			$errors++;
+			next;
+		}
+		my $data = $storage->set($set);
+		if (!$data)
+		{
+			print STDERR "CHECK: can not load inventory for set: $set\n";
+			$errors++;
+			next;
+		}
+	}
+	$errors and die("CHECK: $errors errors found");
+	return(1);
+}
 #
 ## mc_gatherer() #########################################################
 #
@@ -109,14 +146,14 @@ sub mc_gatherer
 		}
 		print "Gathered $code, ", $data->{'set_size'}, " cards\n" if !$q;
 	}
-	return($errors ? undef : 1);
+	$errors and die("CHECK: $errors errors found");
+	return(1);
 }
 #
 ## mc_inventory() ########################################################
 #
 sub mc_inventory
 {
-	my $errors = 0;
 
 	@ARGV or die("error: missing inventory file argument");
 	my $path = shift(@ARGV);
@@ -137,7 +174,7 @@ sub mc_inventory
 		return(undef);
 	}
 	print "Inventoried ", $data->{'num_cards'}, " total cards\n" if !$q;
-	return($errors ? 0 : 1);
+	return(1);
 }
 #
 ## mc_list() #############################################################

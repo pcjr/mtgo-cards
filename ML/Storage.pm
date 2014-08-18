@@ -154,7 +154,8 @@ sub inv
 	{
 		my $xml = eval { XMLin($path,
 			'ForceArray' => 1,
-			'KeyAttr' => 'name',
+			# This needs to be a unique key for all card info
+			'KeyAttr' => 'id',
 		) };
 		if ($@)
 		{
@@ -164,7 +165,7 @@ sub inv
 		return($xml);
 	}
 	my $xml = XMLout($data,
-		'KeyAttr' => 'name',
+		'KeyAttr' => 'id',
 		'Attrindent' => 1,
 	);
 	$self->preserve($path) or return(undef);
@@ -239,7 +240,8 @@ sub set
 	{
 		my $xml = eval { XMLin($path,
 			'ForceArray' => 1,
-			'KeyAttr' => 'name',
+			# This needs to be a unique key for all card info
+			'KeyAttr' => 'gid',
 		) };
 		if ($@)
 		{
@@ -249,7 +251,7 @@ sub set
 		return($xml);
 	}
 	my $xml = XMLout($data,
-		'KeyAttr' => 'name',
+		'KeyAttr' => 'gid',
 		'Attrindent' => 1,
 	);
 	$self->preserve($path) or return(undef);

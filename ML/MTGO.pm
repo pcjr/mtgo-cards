@@ -64,11 +64,12 @@ Load the MTGO export CSV from $path. Data is returned as an XML string.
 
 Returns a hash reference containing the following keys:
 
+	cards	- reference to list of hash references describing cards in set
 	created	- time/date stamp of when the data was parsed
+	num_cards- total number of individual cards in inventory
+	sets	- unique list of set_codes of all cards in inventory
 	source	- $path
 	unique	- number of unique cards
-	cards	- reference to list of hash references describing cards in set
-	num_cards- total number of individual cards in inventory
 
 For each card in set, the following data is maintained:
 
@@ -163,7 +164,7 @@ sub inventory
 			'rarity' => $cr,
 			'set_code' => $cset,
 			'clctr' => $ccol,
-			'foil' => $cfoil,
+			'foil' => ($cfoil eq 'Yes'),
 		);
 		return(\%card);
 	};
@@ -171,6 +172,7 @@ sub inventory
 	## Process cards ###################################################
 	#
 	my @cards;
+	my %set_codes;
 	my $count = 0;
 	while ($line = <F>)
 	{
@@ -186,7 +188,11 @@ sub inventory
 				my $c = &$parseline($line);
 				$c or return(undef);
 				push(@cards, $c);
+				#
+				## Per-card analysis #######################
+				#
 				$count += $c->{'quantity'};
+				$set_codes{ $c->{'set_code'} } = 1;
 			}
 			next;
 		}
@@ -202,11 +208,12 @@ sub inventory
 	my($sec, $min, $hour, $mday, $mon, $year) = (localtime())[0..5];
 	my %inven =
 	(
+		'cards' =>	\@cards,
 		'created' =>	sprintf("%04d%02d%02d-%02d%02d%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec),
+		'num_cards' =>	$count,
+		'sets' =>	[sort(keys(%set_codes))],
 		'source' =>	$path,
 		'unique' =>	scalar(@cards),
-		'cards' =>	\@cards,
-		'num_cards' =>	$count,
 	);
 	return(\%inven);
 }       
