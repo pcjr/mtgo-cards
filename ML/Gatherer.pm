@@ -36,10 +36,11 @@ Gatherer data.
 ############################################################################
 #       
 
-=item new ($mcs)
+=item new ($mcs, $db)
 
 Create an instance of a B<ML::Gatherer> object.
-$ mcs is a Magic Card Static object.
+$mcs is a Magic Card Static object.
+$db is a Magic Library Storage object.
 
 =cut
 #
@@ -53,6 +54,7 @@ sub new
         {
 		'COOKIE_JAR'	=> 'lwp_cookies.dat',
 		'MCS'		=> undef,
+		'DB'		=> undef,
 		'USER_AGENT'	=> undef,
 		'USER_AGENT_NAME'	=> 'Mozilla/5.0 ',
 		'VERBOSE'	=> 0,
@@ -61,6 +63,7 @@ sub new
                 
         bless($self, $class);   
 	$self->mcs(shift);
+	$self->db(shift);
         return($self);
 }       
 #
@@ -129,8 +132,8 @@ sub fetch
 	## First download Checklist display ################################
 	#       
 	my $display = 'checklist';
-	my $url = $self->url($setname, $display);
-	print "** fetch(): getting checklist: $url\n" if $self->verbose;
+	my $url = $self->url({ 'set' => $setname }, $display);
+	print "** fetch(): getting ($display): $url\n" if $self->verbose;
 	my($res) = $ua->get($url);
 	if (!$res->is_success)
 	{
@@ -194,12 +197,12 @@ sub fetch
 	## Download Compact display ########################################
 	#
 	$display = 'compact';
-	my $url_compact = $self->url($setname, $display);
+	my $url_compact = $self->url({ 'set' => $setname }, $display);
 	my $page = 0;
 	while (1)	# we quit after 100 pages...
 	{
 		my $url_page = $url_compact . '&page=' . $page;
-		print "** fetch(): getting $display: $url_page\n" if $self->verbose;
+		print "** fetch(): getting ($display): $url_page\n" if $self->verbose;
 		my($res) = $ua->get($url_page);
 		if (!$res->is_success)
 		{
@@ -268,10 +271,19 @@ sub fetch
 	#
 	## Handle split cards ##############################################
 	#
-	# Look for two cards with the same num and gid
-	# Create new card with name that's the same name as the card found
-	# in the MTGO inventory...might need to hard code the set of split cards...
-	# Split cards do not have a collector number in the MTGO inventory!!!
+	my $db = $self->db;
+	foreach my $name (keys(%cards))
+	{
+		my $fullname = $db->isSplitCard($name);
+		$fullname or next;
+		if (!$cards{$fullname})
+		{
+			my %tmp = %{ $cards{$name} };	# create new card
+			$tmp{'name'} = $fullname;	# change the name
+			$cards{$fullname} = \%tmp;	# add to setlist
+		}
+		delete($cards{$name});
+	}
 	#
 	## Generate card list ##############################################
 	#
@@ -335,10 +347,125 @@ sub getRows
 ############################################################################
 #
 
-=item url ($set_name, $format)
+=item splitcards ()
 
-Return the Gatherer URL for selecting set $set_name with output style $format.
-$format defaults to "checklist".
+Fetch the Gatherer data for split cards.
+Returns a hash reference containing the following keys:
+
+	cards	- reference to list of hash references describing cards in set
+	retrieved- time/date stamp of when the data was downloaded
+	seconds - how many seconds it took to download and parse the data
+	set_size- number of cards in set
+	source	- source for data, actual Gatherer URL used for download
+
+Below is information for how we use Gatherer.
+
+The B<Standard> format from Gatherer contains the following columns:
+
+
+=cut
+#
+############################################################################
+#       
+sub splitcards
+{       
+        my($self) = shift;
+	my $ua = $self->userAgent;
+	my $tstart = time();
+
+	#
+	## Download Compact display ########################################
+	#
+	my %cards;
+	my $display = 'standard';
+	my $url = $self->url({ 'name' => '+[//]' }, $display);
+	my $page = 0;
+	while (1)	# we quit after 100 pages...
+	{
+		my $url_page = $url . '&page=' . $page;
+		print "** splitcards(): getting ($display): $url_page\n" if $self->verbose;
+		my($res) = $ua->get($url_page);
+		if (!$res->is_success)
+		{
+			print STDERR "ERROR: splitcards(): failed for: $url_page\nStatus line: ",
+				$res->status_line, "\n";
+			return(undef);
+		}
+		# I admit that this is a hack and I should be using HTML::Parser
+		my @lines = split(m/[\r\n]/, $res->content);
+		print "** splitcards(): bytes downloaded: ${\(length($res->content))}, ${\(scalar(@lines))} lines\n" if $self->verbose;
+		@lines = grep(m#<a\s[^>]*>.*//.* \(.*\)</a>#, @lines);
+		foreach my $line (@lines)
+		{
+#<a id="ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_ctl00_listRepeater_ctl00_cardTitle" onclick="return CardLinkAction(event, this, 'SameWindow');" href="../Card/Details.aspx?multiverseid=369041&amp;part=Alive">Alive // Well (Alive)</a>
+			# Extract multiverseid and card name
+			if ($line !~ m#.*multiverseid=(\d+)#)
+			{
+				print STDERR "ERROR: splitcards(): no multiverseid in: $line\n";
+				return(undef);
+			}
+			my $multiverseid = $1;	# can have multiple ID's
+			if ($line !~ m#.*<a\s[^>]*>([^/]+)\s//\s([^(]+)\s\(.*\)</a>#)
+			{
+				print STDERR "ERROR: splitcards(): no multiverseid in: $line\n";
+				return(undef);
+			}
+			my($first, $last) = ($1, $2);
+			next if $cards{"$first/$last"};
+			my %card =
+			(
+				'name'	=> "$first/$last",
+				'first'	=> $first,
+				'last'	=> $last,
+			);
+			$cards{"$first/$last"} = \%card;
+#print STDERR "DEBUG: $first/$last\n";
+		}
+		#
+		## Determine if more pages #################################
+		#
+		$page++;
+		my $str = $res->content;
+#print STDERR "DEBUG: checking for page controls page: $page\n";
+		last if $str !~ m/.*class="pagingcontrols">(.*)$/s;
+		$str = $1;	# there are pages
+#print STDERR "DEBUG: there are pages\n";
+		# See if there are pages beyond the current one
+		last if $str !~ m#/Pages.*?page=$page\&amp;#;
+#print STDERR "DEBUG: next page: $page\n";
+		if (!$page > 100)
+		{
+			print STDERR "ERROR: splitcards(): too man pages\n";
+			return(undef);
+		}
+	}
+	#
+	## Complete data structure #########################################
+	#
+	my($sec, $min, $hour, $mday, $mon, $year) = (localtime())[0..5];
+	my %setinfo =
+	(
+		'retrieved' =>	sprintf("%04d%02d%02d-%02d%02d%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec),
+		'set_name' =>	'Split Cards',
+		'set_size' =>	scalar(keys(%cards)),
+		'source' =>	$url,
+		'cards' =>	[values(%cards)],
+		'seconds' =>	time() - $tstart,
+	);
+	return(\%setinfo);
+}       
+#
+############################################################################
+#
+
+=item url ($config, $format)
+
+Return the Gatherer URL for selecting with output style $format.
+$config specifies the configuration of the query. It is a hash reference.
+The keys are the names of search attributes. Special handling is performed
+for the following search attributes:
+
+	set - value is surrounded by []'s
 
 Sample URL:
 	http://gatherer.wizards.com/Pages/Search/Default.aspx?output=checklist&set=%5b%22Vintage+Masters%22%5d
@@ -350,13 +477,23 @@ Sample URL:
 sub url
 {       
         my $self = shift;
-	my($set_name, $format) = @_;
+	my($config, $format) = @_;
 
 	$format = 'checklist' if !$format;
-	return(join('',
-		$self->url_base, '?',
-		'output=', $format, '&',
-		'set=["', $set_name, '"]'));
+	my @attrs =
+	(
+		'output=' . $format,
+	);
+	foreach my $k (keys(%$config))
+	{
+		if ($k eq 'set')
+		{
+			push(@attrs, 'set=["' . $config->{$k} . '"]');
+			next;
+		}
+		push(@attrs, $k . '="' . $config->{$k} . '"');
+	}
+	return(join('', $self->url_base, '?', join('&', @attrs)));
 }       
 #
 ############################################################################
@@ -419,6 +556,25 @@ sub cookieJar
                 
 	$self->{'COOKIE_JAR'} = shift if (@_);
 	return($self->{'COOKIE_JAR'});
+}       
+#
+############################################################################
+#
+
+=item db ()
+
+Get or set the ML::Storage object.
+
+=cut
+#
+############################################################################
+#       
+sub db
+{       
+        my($self) = shift;
+                
+	$self->{'DB'} = shift if (@_);
+	return($self->{'DB'});
 }       
 #
 ############################################################################

@@ -4,7 +4,12 @@ git push origin master
 # Price info: http://www.mtggoldfish.com/index/VMA#online
 # Need to determine if they use the same 3-letter set codes as mtgo
 
-Gatherer reports multiple versions of the same card, such as Urza's Mine.
-Need to use the multiverse ID as the unique ID. Get the basic info using
-the Checklist. Merge this with the Compact display which contains the
-Gatherer ID in the Printings Column
+To get the list of split cards run:
+http://gatherer.wizards.com/Pages/Search/Default.aspx?output=standard&name=name=+[//]
+
+Note that each card will appear twice in the results.
+You can only get the split card names in the format "Name1 // Name2"
+with the standard display.
+
+So, we basically need to create a database of all the split cards
+so that we do the right thing when generating card sets.

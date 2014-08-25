@@ -40,7 +40,7 @@ pod2usage('-exitstatus' => 0, '-verbose' => 2) if $opts{'man'};
 my $d = $opts{'debug'};
 my $v = $opts{'verbose'};
 my $q = $opts{'quiet'};
-my $db = $opts{'db'} || 'mcdata';
+my $datadir = $opts{'db'} || 'mcdata';
 #
 ## Sanity checks ###########################################################
 #
@@ -48,9 +48,10 @@ my %commands =
 (	# future planned commands are listed with value of undef
 	'check' => 1,
 	'inventory' => 1,
-	'gatherer' => 1,
 	'list' => 1,
 	'noop' => 1,
+	'setlists' => 1,
+	'splitcards' => 1,
 );
 @ARGV or die("error: missing sub-command");
 my $command = shift;
@@ -59,7 +60,7 @@ $commands{$command} or die("error: unimplemented sub-command: $command");
 #
 ## Startup initialization ################################################
 #
-my $storage = ML::Storage->new($db);
+my $db = ML::Storage->new($datadir);
 my $mcs = ML::Static->new();
 #
 ## Run command ###########################################################
@@ -79,7 +80,7 @@ sub mc_check
 {
 	my $errors = 0;
 
-	my $inv = $storage->inv;
+	my $inv = $db->inv;
 	$inv or die("error: can not load inventory");
 	print "** check'ing: ${\(scalar(@{ $inv->{'sets'} }))} inventory sets\n" if $v;
 	foreach my $set (@{ $inv->{'sets'} })
@@ -91,14 +92,14 @@ sub mc_check
 			$errors++;
 			next;
 		}
-		my $path = $storage->setPath($set);
+		my $path = $db->setPath($set);
 		if (! -e $path)
 		{
 			print STDERR "CHECK: no inventory data for set: $set\n";
 			$errors++;
 			next;
 		}
-		my $data = $storage->set($set);
+		my $data = $db->set($set);
 		if (!$data)
 		{
 			print STDERR "CHECK: can not load inventory for set: $set\n";
@@ -110,14 +111,14 @@ sub mc_check
 	return(1);
 }
 #
-## mc_gatherer() #########################################################
+## mc_setlists() #########################################################
 #
-sub mc_gatherer
+sub mc_setlists
 {
 	my $errors = 0;
 
 	@ARGV or die("error: missing set code argument");
-	my $g = ML::Gatherer->new($mcs);
+	my $g = ML::Gatherer->new($mcs, $db);
 	$g->verbose(1) if $v;
 	foreach my $code (@ARGV)
 	{	# check all set codes
@@ -138,7 +139,7 @@ sub mc_gatherer
 			next;
 		}
 		print "** saving: $code\n" if $v;
-		if (!$storage->set($code, $data))
+		if (!$db->set($code, $data))
 		{
 			print STDERR "error: could not save set: $code\n";
 			$errors++;
@@ -147,6 +148,21 @@ sub mc_gatherer
 		print "Gathered $code, ", $data->{'set_size'}, " cards\n" if !$q;
 	}
 	$errors and die("CHECK: $errors errors found");
+	return(1);
+}
+#
+## mc_splitcards() #######################################################
+#
+sub mc_splitcards
+{
+	@ARGV and die("error: unexpected arguments");
+	my $g = ML::Gatherer->new($mcs, $db);
+	$g->verbose(1) if $v;
+	print "** splitcards'ing\n" if $v;
+	my $data = $g->splitcards();
+	$data or die("error: could not fetch splitcards");
+	$db->splitcards($data) or die("error: could not save splitcards");
+	print "Collected ", $data->{'set_size'}, " split cards\n" if !$q;
 	return(1);
 }
 #
@@ -168,7 +184,7 @@ sub mc_inventory
 		return(undef);
 	}
 	print "** saving inventory\n" if $v;
-	if (!$storage->inv($data))
+	if (!$db->inv($data))
 	{
 		print STDERR "error: could not save inventory\n";
 		return(undef);
@@ -188,7 +204,7 @@ sub mc_list
 	foreach my $code (@ARGV)
 	{
 		print "** list'ing: $code\n" if $v;
-		my $data = $storage->set($code);
+		my $data = $db->set($code);
 		if (!$data)
 		{
 			print STDERR "error: could not load set: $code\n";
@@ -225,7 +241,8 @@ mc - Magic Online Collection management tool
 
     Commands:
 	check
-	gatherer setcode ...
+	setlists setcode ...
+	splitcards
 	inventory file.csv
 	list setcode ...
 	noop
@@ -256,7 +273,7 @@ Perform various sanity checks. These include verifying:
 	o all the set codes in your inventory are supported
 	o card set data exists for all supported set codes
 
-=item gatherer setcode ...
+=item setlists setcode ...
 
 Collect information from Gatherer about the specified sets.
 This information is stored in the data directory in a file
@@ -279,6 +296,10 @@ been gathered.
 This sub-command does mostly nothing. The directory for persistent
 data will be created if it doesn't exist. If you don't want this
 to happen, specify B<.> for the B<-db> argument.
+
+=item splitcards
+
+Retrieve information about split cards from Gatherer.
 
 =back
 

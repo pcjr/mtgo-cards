@@ -20,6 +20,9 @@ ML::Storage - Manage persistent data
 This package provides an interface for saving/loading set-related and
 other information.
 
+The data passed to these methods for storing data should not be subsequently
+modified. It is cached and returned the next time the data ie fetched.
+
 =head1 TODO
 
 =cut
@@ -50,7 +53,9 @@ sub new
         my($class) = shift;
         my($self) =
         {
-		'DIR'	=> '.',
+		'DIR'		=> '.',
+		'INVENTORY'	=> undef,
+		'SPLITCARDS'	=> undef,
         };      
                 
         bless($self, $class);   
@@ -71,6 +76,9 @@ The file being preserved is moved to this sub-directory and
 renamed as a timestamp.
 
 Returns true on success, false otherwise.
+
+TODO: 	Consider using a sub-directory instead of same directory as file
+	being preserved.
 
 =cut
 #
@@ -101,6 +109,40 @@ sub preserve
 }
 #
 ############################################################################
+#       
+
+=item store ($xml, $path)
+
+Save $xml XML in file $path. $path is preserved if it already exists.
+
+Returns B<undef> on failure. Returns $xml on success.
+
+=cut
+#
+############################################################################
+#
+sub store
+{
+        my $self = shift;
+	my($xml, $path) = @_;
+
+	$self->preserve($path) or return(undef);
+	if (!open(SET, ">$path"))
+	{
+		print STDERR "ERROR: store(): open: $path ($!)\n";
+		return(undef);
+	}
+	if (!print SET $xml)
+	{
+		print STDERR "ERROR: store(): write error to: $path ($!)\n";
+		close(SET);
+		return(undef);
+	}
+	close(SET);
+	return(1);
+}
+#
+############################################################################
 #
 
 =back
@@ -108,24 +150,6 @@ sub preserve
 =head2 Inventory-related methods
 
 =over 4
-#
-############################################################################
-#       
-
-=item invPath ()
-
-Return pathname for inventory data file.
-
-=cut
-#
-############################################################################
-#
-sub invPath
-{
-        my $self = shift;
-
-	return($self->dir . "/INVENTORY.xml");
-}
 #
 ############################################################################
 #       
@@ -148,40 +172,27 @@ sub inv
 {
         my $self = shift;
 	my($data) = @_;
-	my $path = $self->invPath;
+	my $base = 'INVENTORY';
+	my $path = $self->dir . "/$base.xml";
+	my $keyattr = 'id';
 
-	if (!$data)
+	if ($data)
 	{
-		my $xml = eval { XMLin($path,
-			'ForceArray' => 1,
-			# This needs to be a unique key for all card info
-			'KeyAttr' => 'id',
-		) };
-		if ($@)
-		{
-			print STDERR "ERROR: inv(): XML parsing errors loading $path: $@\n";
-			return(undef);
-		}
-		return($xml);
+		$self->{$base} = $data;
+		return($self->store(XMLout($data,
+			'KeyAttr' => $keyattr,
+			'Attrindent' => 1,
+		), $path));
 	}
-	my $xml = XMLout($data,
-		'KeyAttr' => 'id',
-		'Attrindent' => 1,
-	);
-	$self->preserve($path) or return(undef);
-	if (!open(F, ">$path"))
-	{
-		print STDERR "ERROR: inv(): open: $path ($!)\n";
-		return(undef);
-	}
-	if (!print F $xml)
-	{
-		print STDERR "ERROR: inv(): write error to: $path ($!)\n";
-		close(F);
-		return(undef);
-	}
-	close(F);
-	return(1);
+	$self->{$base} and return($self->{$base});
+	my $xml = eval { XMLin($path,
+		'ForceArray' => 1,
+		# This needs to be a unique key for all card info
+		'KeyAttr' => $keyattr,
+	) };
+	$@ or return($xml);
+	print STDERR "ERROR: inv(): XML parsing errors loading $path: $@\n";
+	return(undef);
 }
 #
 ############################################################################
@@ -192,25 +203,6 @@ sub inv
 =head2 Set-related methods
 
 =over 4
-#
-############################################################################
-#       
-
-=item setPath ($code)
-
-Return pathname for set data file with three-letter abbreviation $code.
-
-=cut
-#
-############################################################################
-#
-sub setPath
-{
-        my $self = shift;
-	my($code) = @_;
-
-	return($self->dir . "/set_$code.xml");
-}
 #
 ############################################################################
 #       
@@ -234,40 +226,109 @@ sub set
 {
         my $self = shift;
 	my($code, $data) = @_;
-	my $path = $self->setPath($code);
+	my $base = "set_$code";
+	my $path = $self->dir . "/$base.xml";
+	my $keyattr = 'gid';
 
-	if (!$data)
+	if ($data)
 	{
-		my $xml = eval { XMLin($path,
-			'ForceArray' => 1,
-			# This needs to be a unique key for all card info
-			'KeyAttr' => 'gid',
-		) };
-		if ($@)
-		{
-			print STDERR "ERROR: set(): XML parsing errors loading $code: $@\n";
-			return(undef);
-		}
-		return($xml);
+		$self->{$base} = $data;
+		return($self->store(XMLout($data,
+			'KeyAttr' => $keyattr,
+			'Attrindent' => 1,
+		), $path));
 	}
-	my $xml = XMLout($data,
-		'KeyAttr' => 'gid',
-		'Attrindent' => 1,
-	);
-	$self->preserve($path) or return(undef);
-	if (!open(SET, ">$path"))
+	$self->{$base} and return($self->{$base});
+	my $xml = eval { XMLin($path,
+		'ForceArray' => 1,
+		# This needs to be a unique key for all card info
+		'KeyAttr' => $keyattr,
+	) };
+	$@ or return($xml);
+	print STDERR "ERROR: set(): XML parsing errors loading $code: $@\n";
+	return(undef);
+}
+#
+############################################################################
+#
+
+=back
+
+=head2 Miscellaneous-related methods
+
+=over 4
+#
+############################################################################
+#       
+
+=item splitcards ($data)
+
+If $data is specified, save the split card information referenced by it.
+Otherwise, load the split card info and a reference to its data.
+
+Returns B<undef> on failure.
+
+=cut
+#
+############################################################################
+#
+sub splitcards
+{
+        my $self = shift;
+	my($data) = @_;
+	my $base = "SPLITCARDS";
+	my $path = $self->dir . "/$base.xml";
+	my $keyattr = 'name';
+
+	if ($data)
 	{
-		print STDERR "ERROR: set(): open: $path ($!)\n";
-		return(undef);
+		$self->{$base} = $data;
+		return($self->store(XMLout($data,
+			'KeyAttr' => $keyattr,
+			'Attrindent' => 1,
+		), $path));
 	}
-	if (!print SET $xml)
+	$self->{$base} and return($self->{$base});
+	my $xml = eval { XMLin($path,
+		'ForceArray' => 1,
+		# This needs to be a unique key for all card info
+		'KeyAttr' => $keyattr,
+	) };
+	$@ or return($xml);
+	print STDERR "ERROR: splitcards(): XML parsing errors loading $path: $@\n";
+	return(undef);
+}
+#
+############################################################################
+#       
+
+=item isSplitCard ($name)
+
+If $name is one half of a split card, return the full name.
+
+Returns B<undef> otherwise.
+
+=cut
+#
+############################################################################
+#
+sub isSplitCard
+{
+        my $self = shift;
+	my($name) = @_;
+	my $base = "split_names";
+
+	($self->{$base}) and
+		return($self->{$base}->{$name});
+	my $rawdata = $self->splitcards;
+	my %names;
+	foreach my $card (keys(%{ $rawdata->{'cards'} }))
 	{
-		print STDERR "ERROR: set(): write error to: $path ($!)\n";
-		close(SET);
-		return(undef);
+		$names{ $rawdata->{'cards'}->{$card}->{'first'} } =
+		$names{ $rawdata->{'cards'}->{$card}->{'last'} } = $card;
 	}
-	close(SET);
-	return(1);
+	$self->{$base} = \%names;
+	return($self->isSplitCard($name));
 }
 #
 ############################################################################

@@ -125,7 +125,7 @@ sub setMaps
 		'DDD'	=> undef,
 		'DDF'	=> undef,
 		'DDH'	=> undef,
-		'DGM'	=> undef,
+		'DGM'	=> "Dragon's Maze",
 		'DIS'	=> undef,
 		'DKA'	=> undef,
 		'DRB'	=> undef,
