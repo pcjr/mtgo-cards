@@ -49,6 +49,7 @@ my %commands =
 	'check' => 1,
 	'inventory' => 1,
 	'list' => 1,
+	'needed' => undef,
 	'noop' => 1,
 	'setlists' => 1,
 	'splitcards' => 1,
@@ -116,19 +117,34 @@ sub mc_check
 sub mc_setlists
 {
 	my $errors = 0;
+	my @sets = @ARGV;
 
-	@ARGV or die("error: missing set code argument");
 	my $g = ML::Gatherer->new($mcs, $db);
 	$g->verbose(1) if $v;
-	foreach my $code (@ARGV)
-	{	# check all set codes
-		next if $mcs->setMaps($code);
-		print STDERR "error: unsupported set code: $code\n";
-		$errors++;
+	if (!@sets)
+	{
+		#
+		## Determine mssing sets #################################
+		#
+		my $codes = $mcs->setMaps;
+		$codes or die("error: could not get set codes");
+		foreach my $code (@$codes)
+		{
+			push(@sets, $code) if ! -e $db->setPath($code);
+		}
+	}
+	else
+	{	# Don't need to check this if setMaps() was our data source
+		foreach my $code (@sets)
+		{	# check all set codes
+			next if $mcs->setMaps($code);
+			print STDERR "error: unsupported set code: $code\n";
+			$errors++;
+		}
 	}
 	$errors and die("errors: found $errors error(s)");
-	print "** gather'ing ${\(scalar(@ARGV))} set(s)\n" if $v;
-	foreach my $code (@ARGV)
+	print "** gather'ing ${\(scalar(@sets))} set(s)\n" if $v;
+	foreach my $code (@sets)
 	{
 		print "** fetching: $code\n" if $v;
 		my $data = $g->fetch($code);
@@ -147,7 +163,7 @@ sub mc_setlists
 		}
 		print "Gathered $code, ", $data->{'set_size'}, " cards\n" if !$q;
 	}
-	$errors and die("CHECK: $errors errors found");
+	$errors and die("SETLISTS: $errors errors found");
 	return(1);
 }
 #
@@ -241,7 +257,7 @@ mc - Magic Online Collection management tool
 
     Commands:
 	check
-	setlists setcode ...
+	setlists [setcode ...]
 	splitcards
 	inventory file.csv
 	list setcode ...
@@ -261,11 +277,18 @@ setcode. B<mc> does the same.
 By default, data is stored as XML in a sub-directory named B<mcdata>.
 The B<-db> argument can be used to over-ride this.
 
+=head2 Initial Setup
+
+Run this sequence of commands to initialize set data from Gatherer:
+
+	mc.pl splitcards
+	mc.pl setlists
+
 =head1 COMMANDS
 
 =over 4
 
-=item check
+=item B<check>
 
 Perform various sanity checks. These include verifying:
 
@@ -273,7 +296,35 @@ Perform various sanity checks. These include verifying:
 	o all the set codes in your inventory are supported
 	o card set data exists for all supported set codes
 
-=item setlists setcode ...
+=item B<inventory> I<file.csv>
+
+Process and store the specified CSV inventory file.
+
+=item B<list> I<setcode> ...
+
+List the contents of the specified set. Assumes this set has already
+been gathered.
+
+=item B<needed> [I<setcode> ...]
+
+Determine which cards are needed for the collection.
+If I<setcode> is specified, just report cards needed
+to complete that set.
+
+A card is needed for a collection
+if the inventory contains fewer than four copies of that card from
+the preferred set.
+A card is needed for a set
+if the inventory contains fewer than four copies of that card from
+the specified set.
+
+=item B<noop>
+
+This sub-command does mostly nothing. The directory for persistent
+data will be created if it doesn't exist. If you don't want this
+to happen, specify B<.> for the B<-db> argument.
+
+=item B<setlists> I<setcode> ...
 
 Collect information from Gatherer about the specified sets.
 This information is stored in the data directory in a file
@@ -282,22 +333,10 @@ whose name begins with the I<setcode> followed by a B<.xml> suffix.
 If the set information already exists, then B<mc> does nothing
 unless the B<-force> argument was specified.
 
-=item inventory file.csv
+If no I<setcodes> are specified, then all sets missing Gatherer
+information are collected.
 
-Process and store the specified CSV inventory file.
-
-=item list setcode ...
-
-List the contents of the specified set. Assumes this set has already
-been gathered.
-
-=item noop
-
-This sub-command does mostly nothing. The directory for persistent
-data will be created if it doesn't exist. If you don't want this
-to happen, specify B<.> for the B<-db> argument.
-
-=item splitcards
+=item B<splitcards>
 
 Retrieve information about split cards from Gatherer.
 

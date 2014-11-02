@@ -211,7 +211,8 @@ sub inv
 
 If $data is specified, save the set with three-letter abbreviation $code
 and return true on success, false otherwise.
-Otherwise, load the set and a reference to its data.
+Otherwise, load the set and a reference to its data. This data may have
+been previously cached.
 
 Returns reference to same data structure as originally passed to set()
 when the data was saved.
@@ -227,7 +228,7 @@ sub set
         my $self = shift;
 	my($code, $data) = @_;
 	my $base = "set_$code";
-	my $path = $self->dir . "/$base.xml";
+	my $path = $self->setPath($code);
 	my $keyattr = 'gid';
 
 	if ($data)
@@ -247,6 +248,27 @@ sub set
 	$@ or return($xml);
 	print STDERR "ERROR: set(): XML parsing errors loading $code: $@\n";
 	return(undef);
+}
+#
+############################################################################
+#       
+
+=item setPath ($code)
+
+Return path to file containing set data for $code.
+
+Returns B<undef> on failure.
+
+=cut
+#
+############################################################################
+#
+sub setPath
+{
+        my $self = shift;
+	my($code) = @_;
+
+	return( $self->dir . "/set_$code.xml");
 }
 #
 ############################################################################
