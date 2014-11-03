@@ -81,6 +81,8 @@ For each card in set, the following data is maintained:
 	clctr	- collector number
 	foil	- set if card is premium
 
+The rarity informaiton from MTGO is normalized to match what
+Gatherer uses (single-letter rarity abbreviations).
 Returns false on error.
 
 As of 2014-08-16, lines that contain non-ASCII characters in card names
@@ -161,7 +163,7 @@ sub inventory
 			'name' => $cname,
 			'quantity' => $cquan,
 			'id' => $cid,
-			'rarity' => $cr,
+			'rarity' => $self->mcs->fixRarity($cr),
 			'set_code' => $cset,
 			'clctr' => $ccol,
 			'foil' => ($cfoil eq 'Yes'),

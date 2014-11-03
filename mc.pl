@@ -49,7 +49,7 @@ my %commands =
 	'check' => 1,
 	'inventory' => 1,
 	'list' => 1,
-	'needed' => undef,
+	'needed' => 1,
 	'noop' => 1,
 	'setlists' => 1,
 	'splitcards' => 1,
@@ -74,6 +74,77 @@ exit($status ? 0 : 1);
 #
 ## Sub-commands ##########################################################
 #
+#
+## mc_needed() ###########################################################
+#
+# TODO:
+#	Need to check if there's a different version of each missing card
+#	that we prefer.
+# If so, report ignore the card if we have all of the preferred versions.
+# If we do not have all of the preferred versions, report how many of the
+# preferred versions we actually need. Also note if we have a total of four
+# across all sets.
+#	
+#
+sub mc_needed
+{
+	my $errors = 0;
+	my @sets = @ARGV;
+
+	@sets or die("error: unimplemented functionality: must specify set name for needed");
+	print "** needed'ing ${\(scalar(@sets))} set(s)\n" if $v;
+	foreach my $set (@sets)
+	{
+		print "** needed'ing: $set\n" if $v;
+		#
+		## Scan inventory ########################################
+		#
+		print "** Loading cards from inventory\n" if $v;
+		my $inv = $db->invCards($set);
+		$inv or die("error: could not access inventory data for: $set");
+		my %names;
+		foreach my $card (@$inv)
+		{
+			next if $card->{'foil'};
+			$names{ $card->{'name'} } = $card;
+		}
+		#
+		## Compare card set to inventory #########################
+		#
+		print "** Loading card set: $set\n" if $v;
+		my $set = $db->set($set);
+		$set or die("error: could not access set data for: $set");
+		my %needed;
+		foreach my $card (keys(%{ $set->{'cards'} }))
+		{
+			my $name = $set->{'cards'}->{$card}->{'name'};
+			if (!exists($names{ $name }))
+			{
+				$needed{ $name } =
+				{
+					'name' => $name,
+					'rarity' => $set->{'cards'}->{$card}->{'rarity'},
+					'quantity' => 0,
+				};
+				next;
+			}
+			next if $names{ $name }->{'quantity'} >= 4;
+			$needed{ $name } = $names{ $name };
+		}
+		#
+		## Report findings #######################################
+		#
+		foreach my $card (sort(keys(%needed)))
+		{
+			print sprintf("%d %s %s\n",
+				(4 - $needed{$card}->{'quantity'}),
+				$needed{$card}->{'rarity'},
+				$needed{$card}->{'name'}
+			);
+		}
+	}
+	return($errors ? 0 : 1);
+}
 #
 ## mc_check() ############################################################
 #
@@ -228,7 +299,7 @@ sub mc_list
 			next;
 		}
 		print "Set Name: ", $data->{'set_name'}, "\n";
-		print "Retrieved: ", $data->{'saved'}, "\n";
+		print "Retrieved: ", $data->{'retrieved'}, "\n";
 		print "Source: ", $data->{'source'}, "\n";
 		print "Size: ", $data->{'set_size'}, "\n";
 	}
@@ -284,6 +355,11 @@ Run this sequence of commands to initialize set data from Gatherer:
 	mc.pl splitcards
 	mc.pl setlists
 
+Then, run this sequence of commands to ingest collection data
+originating from MtGO:
+
+	mc.pl inventory mtgo.csv
+
 =head1 COMMANDS
 
 =over 4
@@ -318,6 +394,8 @@ A card is needed for a set
 if the inventory contains fewer than four copies of that card from
 the specified set.
 
+At this time, foil cards are ignored for purposes of being needed.
+
 =item B<noop>
 
 This sub-command does mostly nothing. The directory for persistent
@@ -339,6 +417,8 @@ information are collected.
 =item B<splitcards>
 
 Retrieve information about split cards from Gatherer.
+This informaiton must be retrieved each time a enw set is released
+that contains plsit cards.
 
 =back
 

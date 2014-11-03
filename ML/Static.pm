@@ -84,6 +84,35 @@ sub fixCardNames
 ############################################################################
 #
 
+=item fixRarity ($str)
+
+Translate MTGO rarity names to Gatherer abbreviations.
+
+=cut
+#
+############################################################################
+#       
+sub fixRarity
+{       
+        my $self = shift;
+	my $str = shift;
+	my %mappings =
+	(
+		'Bonus' => 'B',
+		'Mythic Rare' => 'M',
+		'Rare' => 'R',
+		'Uncommon' => 'U',
+		'Common' => 'C',
+		'Promo' => 'P',	# this might be a MTGO bug, just one card
+	);
+
+	$mappings{$str} or die("error: unrecognized rarity in fixRarity(): '$str'");
+	return($mappings{$str});
+}       
+#
+############################################################################
+#
+
 =item setMaps ($code)
 
 If $code is set, return the Gatherer name corresponding to that set code.

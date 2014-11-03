@@ -173,7 +173,7 @@ sub inv
         my $self = shift;
 	my($data) = @_;
 	my $base = 'INVENTORY';
-	my $path = $self->dir . "/$base.xml";
+	my $path = $self->filePath('dyn', $base);
 	my $keyattr = 'id';
 
 	if ($data)
@@ -187,12 +187,43 @@ sub inv
 	$self->{$base} and return($self->{$base});
 	my $xml = eval { XMLin($path,
 		'ForceArray' => 1,
-		# This needs to be a unique key for all card info
+# This needs to be a unique key for all card info
 		'KeyAttr' => $keyattr,
 	) };
 	$@ or return($xml);
 	print STDERR "ERROR: inv(): XML parsing errors loading $path: $@\n";
 	return(undef);
+}
+#
+############################################################################
+#       
+
+=item invCards ($set)
+
+Return sub-set of inventory of cards belonging to $set.
+
+Returns reference to list of references to card data.
+originally saving.
+
+Returns B<undef> on failure.
+
+=cut
+#
+############################################################################
+#
+sub invCards
+{
+        my $self = shift;
+	my($set) = @_;
+	my $inv = $self->inv;
+
+	my @cards = ();
+	foreach my $card (keys(%{ $inv->{'cards'} }))
+	{
+		$inv->{'cards'}->{$card}->{'set_code'} eq $set or next;
+		push(@cards, $inv->{'cards'}->{$card});
+	}
+	return(\@cards);
 }
 #
 ############################################################################
@@ -268,7 +299,7 @@ sub setPath
         my $self = shift;
 	my($code) = @_;
 
-	return( $self->dir . "/set_$code.xml");
+	return($self->filePath('set', $code));
 }
 #
 ############################################################################
@@ -279,6 +310,34 @@ sub setPath
 =head2 Miscellaneous-related methods
 
 =over 4
+#
+############################################################################
+#       
+
+=item filePath ($type, $name)
+
+Used for generating file paths. $type is the type of the file.
+$name is used to qualify that type.
+
+Returns B<undef> on failure.
+
+=cut
+#
+############################################################################
+#
+sub filePath
+{
+        my $self = shift;
+	my($type, $code) = @_;
+	my %types =
+	(
+		'dyn' => 'Dynamic data, expected to be updated periodically',
+		'set' => 'Static set information.',
+	);
+	$types{$type} or die("error: unsupported file type: '$type'");
+
+	return( $self->dir . "/${type}_${code}.xml");
+}
 #
 ############################################################################
 #       
