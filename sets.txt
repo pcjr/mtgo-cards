@@ -1,0 +1,128 @@
+#
+# This file is used to maintain the list of set codes and their
+# corresponding Gatherer names (for Gatherer set information
+# queries).
+#
+# It also contains set prioritization information used
+# when determining set priority for calculating which cards are
+# needed from which sets for collecting playsets. The lower the
+# number the higher the priority. This does not support the desire
+# to specify that you want just one particular card from one particular
+# set but to ignore the others. Since I want the oldest version of cards,
+# the default priority value I use is the date the set was released.
+#
+# In addition, I sort Core sets mostly last, except for 7E.
+#
+# Tab characters are ignored, their use here is to make the data
+# more readable.
+#
+#Code	|Priority|Gatherer name
+10E	|30070806|Tenth Edition
+5DN	|20040604|Fifth Dawn
+7E	|20010411|Seventh Edition
+8ED	|30030728|Eighth Edition
+9ED	|30050729|Ninth Edition
+ALA	|20081003|Alara Reborn
+ALL	|19960610|Alliances
+AP	|20010604|Apocalypse
+ARB	|20090430|Alara Reborn
+AVR	|20120504|Avacyn Restored
+BNG	|20140207|Born of the Gods
+BOK	|20050204|Betrayers of Kamigawa
+CHK	|20041001|Champions of Kamigawa
+#	|99999999| Commander
+#	|99999999|Commander 2013 Edition
+#	|99999999|Commanders Arsenal
+CMD	|20110617|Magic: The Gathering-Commander
+CON	|20090206|Conflux
+CSP	|20060614|Coldsnap
+#	|99999999| Duel Decks
+#	|99999999|Duel Decks: Ajani vs. Nicol Bolas
+#	|99999999|Duel Decks: Divine vs. Demonic
+#	|99999999|Duel Decks: Elspeth vs. Tezzeret
+#	|99999999|Duel Decks: Elves vs. Goblins
+#	|99999999|Duel Decks: Garruk vs. Liliana
+#	|99999999|Duel Decks: Heroes vs. Monsters
+#	|99999999|Duel Decks: Izzet vs. Golgari
+#	|99999999|Duel Decks: Jace vs. Chandra
+#	|99999999|Duel Decks: Jace vs. Vraska
+#	|99999999|Duel Decks: Knights vs. Dragons
+#	|99999999|Duel Decks: Phyrexia vs. the Coalition
+#	|99999999|Duel Decks: Sorin vs. Tibalt
+#	|99999999|Duel Decks: Speed vs. Cunning
+#	|99999999|Duel Decks: Venser vs. Koth
+DD2	|20081107|Duel Decks: Jace vs. Chandra
+DDC	|20090410|Duel Decks: Divine vs. Demonic
+DDD	|20091030|Duel Decks: Garruk vs. Liliana
+DDF	|20100903|Duel Decks: Elspeth vs. Tezzeret
+DDH	|20110902|Duel Decks: Ajani vs. Nicol Bolas
+DGM	|20130503|Dragons Maze
+DIS	|20060505|Dissension
+DKA	|20120203|Dark Ascension
+DRB	|20080829|From the Vault: Dragons
+DST	|20040206|Darksteel
+EVE	|20080725|Eventide
+EVG	|20071107|Duel Decks: Elves vs. Goblins
+EX	|19980608|Exodus
+FUT	|20070504|Future Sight
+GPT	|20060203|Guildpact
+GTC	|20130201|Gatecrash
+H09	|20091120|Premium Deck Series: Slivers
+ICE	|19950601|Ice Age
+IN	|20001002|Invasion
+ISD	|20110930|Innistrad
+JOU	|20140502|Journey into Nyx
+JUD	|20020527|Judgment
+KTK	|20140926|Khans of Tarkir
+LGN	|20030203|Legions
+LRW	|20071012|Lorwyn
+M10	|30080717|Magic 2010
+M11	|30090716|Magic 2011
+M12	|30090717|Magic 2012
+M13	|30090718|Magic 2013
+M14	|30090719|Magic 2014 Core Set
+M15	|30090720|Magic 2015 Core Set
+MBS	|20110204|Mirrodin Besieged
+ME2	|20080922|Masters Edition II
+ME3	|20090907|Masters Edition III
+ME4	|20110110|Masters Edition IV
+MED	|20070910|Masters Edition
+MI	|19961007|Mirage
+MM	|19990925|Mercadian Masques
+MMA	|20130607|Modern Masters
+MOR	|20080201|Morningtide
+MRD	|20031002|Mirrodin
+NE	|20000205|Nemesis
+NPH	|20110513|New Phyrexia
+OD	|20011001|Odyssey
+ONS	|20021007|Onslaught
+PC1	|20090904|Planechase
+PC2	|20120601|Planechase 2012 Edition
+PLC	|20070202|Planar Chaos
+PR	|20000615|Prophecy
+#PRM	|99999999|undef
+PS	|20010205|Planeshift
+RAV	|20051007|Ravnica: City of Guilds
+ROE	|20100423|Rise of the Eldrazi
+RTR	|20121005|Return to Ravnica
+SCG	|20030526|Scourge
+SHM	|20080502|Shadowmoor
+SOK	|20050603|Saviors of Kamigawa
+SOM	|20101001|Scars of Mirrodin
+ST	|19980223|Stronghold
+#TD0	|99999999|undef
+TE	|19971014|Tempest
+THS	|20130927|Theros
+TOR	|20020204|Torment
+TSB	|20061006|Time Spiral Timeshifted
+TSP	|20061006|Time Spiral
+UD	|19990623|Urzas Destiny
+UL	|19980926|Urzas Legacy
+UZ	|19980926|Urzas Saga
+V09	|20090828|From the Vault: Exiled
+V10	|20100827|From the Vault: Relics
+VI	|19970203|Visions
+VMA	|20140616|Vintage Masters
+WL	|19970606|Weatherlight
+WWK	|20100205|Worldwake
+ZEN	|20091002|Zendikar
