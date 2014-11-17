@@ -1,13 +1,5 @@
-The setMaps() data belongs in an external file, not inside the code.
-
-Need to configure set priority for determining which cards
-are needed from which set. This should probably be in an external
-file as well.
-
-Perhaps one XML file for the set data that also indicates priority.
-If I went with this approach, I would want a method for displaying
-this information in human readable form. Such as a list of all set
-codes and their full names. Or, the list of sets ordered by priority.
+Eliminate setMaps() now that we have sets.txt. Create new sub-command
+for consuming this file and generating set code maps and priority maps.
 
 git push origin master
 
