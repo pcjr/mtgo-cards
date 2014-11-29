@@ -47,12 +47,15 @@ my $datadir = $opts{'db'} || 'mcdata';
 my %commands =
 (	# future planned commands are listed with value of undef
 	'check' => 1,
+	'compile' => 1,
+	'flipcards' => 1,
 	'inventory' => 1,
 	'list' => 1,
 	'needed' => 1,
 	'noop' => 1,
 	'setlists' => 1,
 	'splitcards' => 1,
+	'setup' => 1,
 );
 @ARGV or die("error: missing sub-command");
 my $command = shift;
@@ -74,6 +77,35 @@ exit($status ? 0 : 1);
 #
 ## Sub-commands ##########################################################
 #
+#
+## mc_compile() ##########################################################
+#
+# Take all of the set lists and generate a new data structure that uses a
+# cardname as the key. Associated with this are all the setcodes in which
+# this card appears.
+#
+sub mc_compile
+{
+	my $errors = 0;
+	my %cards;
+	my $codes = $mcs->setMaps;
+
+	# Get list of sets
+	# Get cards from set
+	foreach my $code (@$codes)
+	{
+		print "** Loading card set: $code\n" if $v;
+		my $set = $db->set($code);
+		$set or die("error: could not access set data for: $code");
+		foreach my $card (keys(%{ $set->{'cards'} }))
+		{
+			my $name = $set->{'cards'}->{$card}->{'name'};
+			$cards{ $name }->{'sets'}->{$set}++;
+		}
+	}
+	my $xml = $db->cards(\%cards);
+	return($errors ? 0 : 1);
+}
 #
 ## mc_needed() ###########################################################
 #
@@ -183,6 +215,21 @@ sub mc_check
 	return(1);
 }
 #
+## mc_flipcards() ########################################################
+#
+sub mc_flipcards
+{
+	@ARGV and die("error: unexpected arguments");
+	my $g = ML::Gatherer->new($mcs, $db);
+	$g->verbose(1) if $v;
+	print "** flipcards'ing\n" if $v;
+	my $data = $g->flipcards();
+	$data or die("error: could not fetch flipcards");
+	$db->flipcards($data) or die("error: could not save flipcards");
+	print "Collected ", $data->{'set_size'}, " flip cards\n" if !$q;
+	return(1);
+}
+#
 ## mc_setlists() #########################################################
 #
 sub mc_setlists
@@ -235,6 +282,22 @@ sub mc_setlists
 		print "Gathered $code, ", $data->{'set_size'}, " cards\n" if !$q;
 	}
 	$errors and die("SETLISTS: $errors errors found");
+	return(1);
+}
+#
+## mc_setup() ############################################################
+#
+sub mc_setup
+{
+	foreach my $cmd (
+		"splitcards",
+		"setlists",
+	)
+	{
+		my $status = eval("mc_$cmd");
+		defined($status) or
+			die("ERROR: $@");
+	}
 	return(1);
 }
 #
@@ -328,11 +391,14 @@ mc - Magic Online Collection management tool
 
     Commands:
 	check
-	setlists [setcode ...]
-	splitcards
+	compile
+	flipcards
 	inventory file.csv
 	list setcode ...
 	noop
+	setlists [setcode ...]
+	setup
+	splitcards
 
 =head1 DESCRIPTION
 
@@ -350,10 +416,9 @@ The B<-db> argument can be used to over-ride this.
 
 =head2 Initial Setup
 
-Run this sequence of commands to initialize set data from Gatherer:
+Run this command to initialize set data from Gatherer:
 
-	mc.pl splitcards
-	mc.pl setlists
+	mc.pl setup
 
 Then, run this sequence of commands to ingest collection data
 originating from MtGO:
@@ -413,6 +478,14 @@ unless the B<-force> argument was specified.
 
 If no I<setcodes> are specified, then all sets missing Gatherer
 information are collected.
+
+=item B<setup>
+
+This is equivalent to running this sequence of commands:
+
+	mc.pl splitcards
+	mc.pl setlists
+	mc.pl compile
 
 =item B<splitcards>
 

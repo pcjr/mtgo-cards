@@ -238,6 +238,53 @@ sub invCards
 ############################################################################
 #       
 
+=item cards ($data)
+
+If $data is specified, save the card data. If $data is not specified, return
+this card data.
+
+The card data is a unique list of card names along with all of the sets
+they can be found in.
+
+Returns reference to same data structure as originally passed to cards()
+when the data was saved.
+
+Returns B<undef> on failure.
+
+=cut
+#
+############################################################################
+#
+sub cards
+{
+        my $self = shift;
+	my($data) = @_;
+	my $base = "cards_all";
+	my $path = $self->filePath('dyn', 'cards');
+	my $keyattr = 'card';
+
+	if ($data)
+	{
+		$self->{$base} = $data;
+		return($self->store(XMLout($data,
+			'KeyAttr' => $keyattr,
+			'Attrindent' => 1,
+		), $path));
+	}
+	$self->{$base} and return($self->{$base});
+	my $xml = eval { XMLin($path,
+		'ForceArray' => 1,
+		# This needs to be a unique key for all card info
+		'KeyAttr' => $keyattr,
+	) };
+	$@ or return($xml);
+	print STDERR "ERROR: cards(): XML parsing errors loading cards: $@\n";
+	return(undef);
+}
+#
+############################################################################
+#       
+
 =item set ($code, $data)
 
 If $data is specified, save the set with three-letter abbreviation $code
@@ -264,6 +311,7 @@ sub set
 
 	if ($data)
 	{
+# TODO: Should verify that "gid" is unique in the list
 		$self->{$base} = $data;
 		return($self->store(XMLout($data,
 			'KeyAttr' => $keyattr,

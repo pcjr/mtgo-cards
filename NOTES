@@ -1,3 +1,26 @@
+Updated Storage::set() to check for uniqueness.
+Finish mc_flipcards() and Gatherer::flipcards()
+
+
+	Multiple copies of flip cards are going into the set data. For example, see mcdata/set_BOK.xml
+	for gid 74671 (Cunning Bandit and Azamuki, Treachery Incarnate). Need to clean this up when
+	reading from Gatherer.
+
+	The flip cards appear in ()'s after the "real" card name when viewed in Standard format from
+	Gatherer.
+
+	To find flip cards:
+	http://gatherer.wizards.com/Pages/Search/Default.aspx?name=+%5Bflip%5D%7C%7Ctype=+%5Bflip%5D%7C%7Csubtype=+%5Bflip%5D%7C%7Ctext=+%5Bflip%5D&format=%5B%22Kamigawa%20Block%22%5D
+
+	To generate Flip card index, search this in Gatherer:
+	http://gatherer.wizards.com/Pages/Search/Default.aspx?action=advanced&output=standard&text=+[flip]&format=[%22Kamigawa%20Block%22]
+
+	Format contains: Kamigawa Block
+	Text contains: flip
+	Display: Standard
+
+	Look for all names with () in them. Ignore all others.
+
 Eliminate setMaps() now that we have sets.txt. Create new sub-command
 for consuming this file and generating set code maps and priority maps.
 

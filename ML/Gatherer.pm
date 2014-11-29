@@ -121,6 +121,7 @@ sub fetch
 	my($setcode) = @_;
 	my $setname = $self->mcs->setMaps($setcode);
 	my $ua = $self->userAgent;
+	my $db = $self->db;
 	my $tstart = time();
 
 	if (!$setname)
@@ -231,7 +232,7 @@ sub fetch
 			while ($cprinting =~ m/.*?<a\s.*?multiverseid=(\d+)"/)
 			{
 				my $id = $1;
-				if ($cards{$cname}->{'gid'})
+				if ($cards{$cname}->{'gid'} and !$db->isSplitCard($cname))
 				{	# already found this card, multiple
 					# printings - duplicate it
 #print STDERR "DEBUG: found duplicate card: $cname\n";
@@ -271,11 +272,12 @@ sub fetch
 	#
 	## Handle split cards ##############################################
 	#
-	my $db = $self->db;
 	foreach my $name (keys(%cards))
 	{
+#print "DEBUG: Checking for split card: $name\n";
 		my $fullname = $db->isSplitCard($name);
 		$fullname or next;
+#print "DEBUG: FOUND split card: $fullname for $name\n";
 		if (!$cards{$fullname})
 		{
 			my %tmp = %{ $cards{$name} };	# create new card
@@ -284,6 +286,7 @@ sub fetch
 		}
 		delete($cards{$name});
 	}
+#print "DEBUG: Total cards left ", scalar(keys(%cards)), "\n";
 	#
 	## Generate card list ##############################################
 	#
@@ -342,6 +345,126 @@ sub getRows
 	my $tbl = $te->first_table_found;
 	$tbl or return(undef);
 	return($tbl->rows);
+}       
+#
+############################################################################
+#
+
+=item flipcards ()
+
+To generate Flip card index, search this in Gatherer:
+http://gatherer.wizards.com/Pages/Search/Default.aspx?action=advanced&output=standard&text=+[flip]&format=[%22Kamigawa%20Block%22]
+
+Format contains: Kamigawa Block
+Text contains: flip
+Display: Standard
+
+Look for all names with () in them. Ignore all others.
+
+Fetch the Gatherer data for flip cards.
+Returns a hash reference containing the following keys:
+
+	cards	- reference to list of hash references describing cards in set
+	retrieved- time/date stamp of when the data was downloaded
+	seconds - how many seconds it took to download and parse the data
+	set_size- number of cards in set
+	source	- source for data, actual Gatherer URL used for download
+
+Below is information for how we use Gatherer.
+
+The B<Standard> format from Gatherer contains the following columns:
+
+
+=cut
+#
+############################################################################
+#       
+sub flipcards
+{       
+        my($self) = shift;
+	my $ua = $self->userAgent;
+	my $tstart = time();
+
+	#
+	## Download Compact display ########################################
+	#
+	my %cards;
+	my $display = 'standard';
+	my $url = $self->url({ 'name' => '+[//]' }, $display);
+	my $page = 0;
+	while (1)	# we quit after 100 pages...
+	{
+		my $url_page = $url . '&page=' . $page;
+		print "** flipcards(): getting ($display): $url_page\n" if $self->verbose;
+		my($res) = $ua->get($url_page);
+		if (!$res->is_success)
+		{
+			print STDERR "ERROR: flipcards(): failed for: $url_page\nStatus line: ",
+				$res->status_line, "\n";
+			return(undef);
+		}
+		# I admit that this is a hack and I should be using HTML::Parser
+		my @lines = split(m/[\r\n]/, $res->content);
+		print "** flipcards(): bytes downloaded: ${\(length($res->content))}, ${\(scalar(@lines))} lines\n" if $self->verbose;
+		@lines = grep(m#<a\s[^>]*>.*//.* \(.*\)</a>#, @lines);
+		foreach my $line (@lines)
+		{
+#<a id="ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_ctl00_listRepeater_ctl00_cardTitle" onclick="return CardLinkAction(event, this, 'SameWindow');" href="../Card/Details.aspx?multiverseid=369041&amp;part=Alive">Alive // Well (Alive)</a>
+			# Extract multiverseid and card name
+			if ($line !~ m#.*multiverseid=(\d+)#)
+			{
+				print STDERR "ERROR: flipcards(): no multiverseid in: $line\n";
+				return(undef);
+			}
+			my $multiverseid = $1;	# can have multiple ID's
+			if ($line !~ m#.*<a\s[^>]*>([^/]+)\s//\s([^(]+)\s\(.*\)</a>#)
+			{
+				print STDERR "ERROR: flipcards(): no multiverseid in: $line\n";
+				return(undef);
+			}
+			my($first, $last) = ($1, $2);
+			next if $cards{"$first/$last"};
+			my %card =
+			(
+				'name'	=> "$first/$last",
+				'first'	=> $first,
+				'last'	=> $last,
+			);
+			$cards{"$first/$last"} = \%card;
+#print STDERR "DEBUG: $first/$last\n";
+		}
+		#
+		## Determine if more pages #################################
+		#
+		$page++;
+		my $str = $res->content;
+#print STDERR "DEBUG: checking for page controls page: $page\n";
+		last if $str !~ m/.*class="pagingcontrols">(.*)$/s;
+		$str = $1;	# there are pages
+#print STDERR "DEBUG: there are pages\n";
+		# See if there are pages beyond the current one
+		last if $str !~ m#/Pages.*?page=$page\&amp;#;
+#print STDERR "DEBUG: next page: $page\n";
+		if (!$page > 100)
+		{
+			print STDERR "ERROR: flipcards(): too man pages\n";
+			return(undef);
+		}
+	}
+	#
+	## Complete data structure #########################################
+	#
+	my($sec, $min, $hour, $mday, $mon, $year) = (localtime())[0..5];
+	my %setinfo =
+	(
+		'retrieved' =>	sprintf("%04d%02d%02d-%02d%02d%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec),
+		'set_name' =>	'Split Cards',
+		'set_size' =>	scalar(keys(%cards)),
+		'source' =>	$url,
+		'cards' =>	[values(%cards)],
+		'seconds' =>	time() - $tstart,
+	);
+	return(\%setinfo);
 }       
 #
 ############################################################################
