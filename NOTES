@@ -1,3 +1,6 @@
+Use static files for set data, should only download if local cache
+is missing file.
+
 Updated Storage::set() to check for uniqueness.
 Finish mc_flipcards() and Gatherer::flipcards()
 
