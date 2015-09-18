@@ -56,6 +56,7 @@ sub new
 		'DIR'		=> '.',
 		'INVENTORY'	=> undef,
 		'SPLITCARDS'	=> undef,
+		'INIT_SUBDIRS'	=> undef,
         };      
                 
         bless($self, $class);   
@@ -347,7 +348,7 @@ sub setPath
         my $self = shift;
 	my($code) = @_;
 
-	return($self->filePath('set', $code));
+	return($self->filePath('sets', $code));
 }
 #
 ############################################################################
@@ -380,11 +381,18 @@ sub filePath
 	my %types =
 	(
 		'dyn' => 'Dynamic data, expected to be updated periodically',
-		'set' => 'Static set information.',
+		'sets' => 'Static set information.',
 	);
 	$types{$type} or die("error: unsupported file type: '$type'");
 
-	return( $self->dir . "/${type}_${code}.xml");
+	if (!$self->{'INIT_SUBDIRS'})
+	{
+		# TODO
+		# Check for and initialize directory tree on first
+		# invocation
+	}
+
+	return( $self->dir . "/${type}/${code}.xml");
 }
 #
 ############################################################################

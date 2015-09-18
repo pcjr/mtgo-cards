@@ -15,7 +15,7 @@ use ML::MTGO;
 #
 ## Argument handling #######################################################
 #
-my $me = "revccrc";
+my $me = "mc";
 my @saveargs = @ARGV;
 my @optdescs =
 (
@@ -40,7 +40,7 @@ pod2usage('-exitstatus' => 0, '-verbose' => 2) if $opts{'man'};
 my $d = $opts{'debug'};
 my $v = $opts{'verbose'};
 my $q = $opts{'quiet'};
-my $datadir = $opts{'db'} || 'mcdata';
+my $datadir = $opts{'db'} || '.';
 #
 ## Sanity checks ###########################################################
 #
@@ -403,15 +403,20 @@ mc - Magic Online Collection management tool
 =head1 DESCRIPTION
 
 B<mc> is a front end for managing your Magic Online collection.
-It queries Gatherer for set information, parses your CSV-exported
-collection data, reports cards you have less than four of, etc.
+It parses your CSV-exported collection data, reports cards you
+have less than four of, etc.
 Each type of activity is specified by individual commands which
 are described in the next section.
 
-Magic Online described the set a card belongs to using its 3-letter
+Included is a card set database, information about each
+card in a set.  B<mc> can query Gatherer for new set
+information to update the card set database.
+
+Magic Online describes the set a card belongs to using its 3-letter
 setcode. B<mc> does the same.
 
-By default, data is stored as XML in a sub-directory named B<mcdata>.
+By default, data is stored as XML in sub-directories of
+the current directory.
 The B<-db> argument can be used to over-ride this.
 
 =head2 Initial Setup

@@ -1,3 +1,6 @@
+Thu Mar 26 17:26:01 HST 2015
+See filePat() in Storage.pm for current work in progress
+
 Use static files for set data, should only download if local cache
 is missing file.
 
